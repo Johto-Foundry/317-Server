@@ -2,8 +2,10 @@ package server.world;
 
 import org.junit.jupiter.api.Test;
 import server.world.player.Player;
+import server.world.player.PlayerList;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 class WorldTest {
@@ -28,22 +30,54 @@ class WorldTest {
 
         world.registerPlayer(player);
 
-        assertEquals(0, world.getPlayers().size());
+        assertEquals(0, world.getPlayerCount());
         assertEquals(Player.NO_INDEX, player.getIndex());
 
         world.cycle();
 
-        assertEquals(1, world.getPlayers().size());
+        assertEquals(1, world.getPlayerCount());
         assertEquals(1, player.getIndex());
-        assertSame(player, world.getPlayers().get(1));
+        assertSame(player, world.getPlayer(1));
 
         world.unregisterPlayer(player);
-        assertEquals(1, world.getPlayers().size());
+        assertEquals(1, world.getPlayerCount());
 
         world.cycle();
 
-        assertEquals(0, world.getPlayers().size());
+        assertEquals(0, world.getPlayerCount());
         assertEquals(Player.NO_INDEX, player.getIndex());
+    }
+
+    @Test
+    void usesLastPlayerChangeBeforeCycle() {
+        World world = new World();
+        Player player = new Player();
+
+        world.registerPlayer(player);
+        world.unregisterPlayer(player);
+        world.registerPlayer(player);
+        world.cycle();
+
+        assertEquals(1, world.getPlayerCount());
+        assertSame(player, world.getPlayer(player.getIndex()));
+    }
+
+    @Test
+    void doesNotReindexActivePlayerWhenRemovalIsCancelled() {
+        World world = new World();
+        Player player = new Player();
+
+        world.registerPlayer(player);
+        world.cycle();
+        int index = player.getIndex();
+
+        world.unregisterPlayer(player);
+        world.registerPlayer(player);
+        world.cycle();
+
+        assertEquals(index, player.getIndex());
+        assertEquals(1, world.getPlayerCount());
+        assertSame(player, world.getPlayer(index));
     }
 
     @Test
@@ -55,7 +89,14 @@ class WorldTest {
         world.unregisterPlayer(player);
         world.cycle();
 
-        assertEquals(0, world.getPlayers().size());
+        assertEquals(0, world.getPlayerCount());
         assertEquals(Player.NO_INDEX, player.getIndex());
+    }
+
+    @Test
+    void doesNotExposeMutablePlayerList() {
+        World world = new World();
+
+        assertFalse(world.getPlayers() instanceof PlayerList);
     }
 }

@@ -2,17 +2,18 @@ package server;
 
 import server.world.World;
 
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.LockSupport;
 
 public final class GameEngine implements Runnable {
 
     public static final long CYCLE_LENGTH_MILLIS = 600L;
-    private static final long CYCLE_LENGTH_NANOS = CYCLE_LENGTH_MILLIS * 1_000_000L;
 
     private final World world;
 
     private volatile boolean running;
     private Thread thread;
+    private long excessCycleNanos;
 
     public GameEngine(World world) {
         this.world = world;
@@ -39,37 +40,41 @@ public final class GameEngine implements Runnable {
 
     @Override
     public void run() {
-        long nextCycle = System.nanoTime();
-
         while (running) {
-            waitUntil(nextCycle);
-
-            if (!running) {
-                break;
-            }
-
             long cycleStart = System.nanoTime();
             world.cycle();
-            long cycleEnd = System.nanoTime();
-            long cycleTime = cycleEnd - cycleStart;
 
-            if (cycleTime > CYCLE_LENGTH_NANOS) {
+            long elapsedNanos = System.nanoTime() - cycleStart + excessCycleNanos;
+            long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(elapsedNanos);
+
+            if (elapsedMillis > CYCLE_LENGTH_MILLIS) {
                 System.err.printf(
-                        "Cycle %d took %.2fms%n",
+                        "Cycle %d took %dms%n",
                         world.getCycle(),
-                        cycleTime / 1_000_000.0
+                        elapsedMillis
                 );
             }
 
-            nextCycle += CYCLE_LENGTH_NANOS;
-
-            if (cycleEnd > nextCycle) {
-                nextCycle = cycleEnd;
-            }
+            excessCycleNanos = elapsedNanos - TimeUnit.MILLISECONDS.toNanos(elapsedMillis);
+            waitFor(calculateWaitMillis(elapsedNanos));
         }
     }
 
-    private void waitUntil(long targetTime) {
+    static long calculateWaitMillis(long elapsedNanos) {
+        long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(elapsedNanos);
+
+        if (elapsedMillis > CYCLE_LENGTH_MILLIS) {
+            long elapsedCycles = elapsedMillis / CYCLE_LENGTH_MILLIS;
+            long nextBoundary = (elapsedCycles + 1) * CYCLE_LENGTH_MILLIS;
+            return nextBoundary - elapsedMillis;
+        }
+
+        return CYCLE_LENGTH_MILLIS - elapsedMillis;
+    }
+
+    private void waitFor(long delayMillis) {
+        long targetTime = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(delayMillis);
+
         while (running) {
             long remaining = targetTime - System.nanoTime();
 

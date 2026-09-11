@@ -3,6 +3,10 @@ package server.world;
 import server.world.player.Player;
 import server.world.player.PlayerList;
 
+import java.util.ArrayList;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -10,8 +14,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 public final class World {
 
     private final PlayerList players = new PlayerList();
-    private final Queue<Player> pendingPlayerAdditions = new ConcurrentLinkedQueue<>();
-    private final Queue<Player> pendingPlayerRemovals = new ConcurrentLinkedQueue<>();
+    private final Queue<PlayerChange> pendingPlayerChanges = new ConcurrentLinkedQueue<>();
 
     private long cycle;
 
@@ -21,27 +24,23 @@ public final class World {
     }
 
     public void registerPlayer(Player player) {
-        Objects.requireNonNull(player, "player");
-
-        pendingPlayerRemovals.remove(player);
-
-        if (player.getIndex() == Player.NO_INDEX && !pendingPlayerAdditions.contains(player)) {
-            pendingPlayerAdditions.add(player);
-        }
+        pendingPlayerChanges.add(new PlayerChange(Objects.requireNonNull(player, "player"), true));
     }
 
     public void unregisterPlayer(Player player) {
-        Objects.requireNonNull(player, "player");
-
-        pendingPlayerAdditions.remove(player);
-
-        if (player.getIndex() != Player.NO_INDEX && !pendingPlayerRemovals.contains(player)) {
-            pendingPlayerRemovals.add(player);
-        }
+        pendingPlayerChanges.add(new PlayerChange(Objects.requireNonNull(player, "player"), false));
     }
 
-    public PlayerList getPlayers() {
-        return players;
+    public Player getPlayer(int index) {
+        return players.get(index);
+    }
+
+    public int getPlayerCount() {
+        return players.size();
+    }
+
+    public Iterable<Player> getPlayers() {
+        return players::iterator;
     }
 
     public long getCycle() {
@@ -49,16 +48,31 @@ public final class World {
     }
 
     private void processPlayerChanges() {
-        Player player;
+        Map<Player, Boolean> desiredState = new IdentityHashMap<>();
+        List<Player> order = new ArrayList<>();
+        PlayerChange change;
 
-        while ((player = pendingPlayerRemovals.poll()) != null) {
-            players.remove(player);
+        while ((change = pendingPlayerChanges.poll()) != null) {
+            Player player = change.player();
+            if (!desiredState.containsKey(player)) {
+                order.add(player);
+            }
+            desiredState.put(player, change.registered());
         }
 
-        while ((player = pendingPlayerAdditions.poll()) != null) {
-            if (player.getIndex() == Player.NO_INDEX) {
-                players.add(player);
+        for (Player player : order) {
+            boolean shouldBeRegistered = desiredState.get(player);
+
+            if (shouldBeRegistered) {
+                if (player.getIndex() == Player.NO_INDEX) {
+                    players.add(player);
+                }
+            } else if (player.getIndex() != Player.NO_INDEX) {
+                players.remove(player);
             }
         }
+    }
+
+    private record PlayerChange(Player player, boolean registered) {
     }
 }
