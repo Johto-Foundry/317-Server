@@ -4,7 +4,6 @@ plugins {
 }
 
 group = "server"
-version = "0.0.0.01"
 
 java {
     toolchain {

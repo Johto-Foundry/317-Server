@@ -1,6 +1,6 @@
 # 317 Server
 
-Version: v0.0.0.01
+Version: v0.0.0
 
 ## Requirements
 
