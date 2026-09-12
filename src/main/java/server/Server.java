@@ -7,7 +7,7 @@ public final class Server {
 
     private final World world = new World();
     private final GameEngine gameEngine = new GameEngine(world);
-    private final NetworkServer networkServer = new NetworkServer();
+    private final NetworkServer networkServer = new NetworkServer(world);
 
     public static void main(String[] args) throws InterruptedException {
         new Server().start();

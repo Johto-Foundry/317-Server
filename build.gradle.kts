@@ -18,6 +18,7 @@ repositories {
 dependencies {
     implementation(platform("io.netty:netty-bom:4.2.18.Final"))
     implementation("io.netty:netty-transport")
+    implementation("io.netty:netty-codec")
 
     testImplementation(platform("org.junit:junit-bom:5.11.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")

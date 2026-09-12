@@ -4,6 +4,7 @@ import server.world.entity.Entity;
 import server.world.npc.Npc;
 import server.world.npc.NpcList;
 import server.world.player.Player;
+import server.world.player.PlayerAdmission;
 import server.world.player.PlayerList;
 
 import java.util.ArrayList;
@@ -12,21 +13,33 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Queue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public final class World {
 
     private final PlayerList players = new PlayerList();
     private final NpcList npcs = new NpcList();
+    private final Queue<PlayerAdmissionRequest> pendingPlayerAdmissions = new ConcurrentLinkedQueue<>();
     private final Queue<PlayerChange> pendingPlayerChanges = new ConcurrentLinkedQueue<>();
     private final Queue<NpcChange> pendingNpcChanges = new ConcurrentLinkedQueue<>();
 
     private long cycle;
 
     public void cycle() {
+        processPlayerAdmissions();
         processPlayerChanges();
         processNpcChanges();
         cycle++;
+    }
+
+    public CompletableFuture<PlayerAdmission> admitPlayer(Player player) {
+        CompletableFuture<PlayerAdmission> result = new CompletableFuture<>();
+        pendingPlayerAdmissions.add(new PlayerAdmissionRequest(
+                Objects.requireNonNull(player, "player"),
+                result
+        ));
+        return result;
     }
 
     public void registerPlayer(Player player) {
@@ -71,6 +84,40 @@ public final class World {
 
     public long getCycle() {
         return cycle;
+    }
+
+    private void processPlayerAdmissions() {
+        PlayerAdmissionRequest request;
+
+        while ((request = pendingPlayerAdmissions.poll()) != null) {
+            Player player = request.player();
+            PlayerAdmission result;
+
+            if (player.getIndex() != Entity.NO_INDEX) {
+                result = PlayerAdmission.ACCEPTED;
+            } else if (isUsernameOnline(player.getUsername())) {
+                result = PlayerAdmission.ALREADY_ONLINE;
+            } else if (players.isFull() || !players.add(player)) {
+                result = PlayerAdmission.WORLD_FULL;
+            } else {
+                result = PlayerAdmission.ACCEPTED;
+            }
+
+            request.result().complete(result);
+        }
+    }
+
+    private boolean isUsernameOnline(String username) {
+        if (username == null) {
+            return false;
+        }
+
+        for (Player player : players) {
+            if (username.equalsIgnoreCase(player.getUsername())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void processPlayerChanges() {
@@ -123,6 +170,12 @@ public final class World {
                 npcs.remove(npc);
             }
         }
+    }
+
+    private record PlayerAdmissionRequest(
+            Player player,
+            CompletableFuture<PlayerAdmission> result
+    ) {
     }
 
     private record PlayerChange(Player player, boolean registered) {

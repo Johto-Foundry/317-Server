@@ -10,24 +10,30 @@ import io.netty.channel.group.DefaultChannelGroup;
 import io.netty.channel.nio.NioIoHandler;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
+import server.net.login.LoginDecoder;
+import server.net.login.LoginHandler;
+import server.world.World;
 
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 public final class NetworkServer {
 
     public static final int DEFAULT_PORT = 43594;
 
+    private final World world;
     private final int port;
 
     private EventLoopGroup eventLoopGroup;
     private ChannelGroup channels;
     private Channel serverChannel;
 
-    public NetworkServer() {
-        this(DEFAULT_PORT);
+    public NetworkServer(World world) {
+        this(world, DEFAULT_PORT);
     }
 
-    public NetworkServer(int port) {
+    public NetworkServer(World world, int port) {
+        this.world = Objects.requireNonNull(world, "world");
         if (port < 0 || port > 65535) {
             throw new IllegalArgumentException("port out of range: " + port);
         }
@@ -49,7 +55,11 @@ public final class NetworkServer {
                     .childHandler(new ChannelInitializer<SocketChannel>() {
                         @Override
                         protected void initChannel(SocketChannel channel) {
-                            channel.attr(Session.KEY).set(new Session(channel));
+                            Session session = new Session(channel);
+                            channel.attr(Session.KEY).set(session);
+                            channel.pipeline().addLast(new SessionHandler(world, session));
+                            channel.pipeline().addLast(new LoginDecoder());
+                            channel.pipeline().addLast(new LoginHandler(world, session));
                             activeChannels.add(channel);
                         }
                     })
