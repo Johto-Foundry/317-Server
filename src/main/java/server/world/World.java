@@ -1,5 +1,8 @@
 package server.world;
 
+import server.world.entity.Entity;
+import server.world.npc.Npc;
+import server.world.npc.NpcList;
 import server.world.player.Player;
 import server.world.player.PlayerList;
 
@@ -14,12 +17,15 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 public final class World {
 
     private final PlayerList players = new PlayerList();
+    private final NpcList npcs = new NpcList();
     private final Queue<PlayerChange> pendingPlayerChanges = new ConcurrentLinkedQueue<>();
+    private final Queue<NpcChange> pendingNpcChanges = new ConcurrentLinkedQueue<>();
 
     private long cycle;
 
     public void cycle() {
         processPlayerChanges();
+        processNpcChanges();
         cycle++;
     }
 
@@ -43,6 +49,26 @@ public final class World {
         return players::iterator;
     }
 
+    public void registerNpc(Npc npc) {
+        pendingNpcChanges.add(new NpcChange(Objects.requireNonNull(npc, "npc"), true));
+    }
+
+    public void unregisterNpc(Npc npc) {
+        pendingNpcChanges.add(new NpcChange(Objects.requireNonNull(npc, "npc"), false));
+    }
+
+    public Npc getNpc(int index) {
+        return npcs.get(index);
+    }
+
+    public int getNpcCount() {
+        return npcs.size();
+    }
+
+    public Iterable<Npc> getNpcs() {
+        return npcs::iterator;
+    }
+
     public long getCycle() {
         return cycle;
     }
@@ -64,15 +90,44 @@ public final class World {
             boolean shouldBeRegistered = desiredState.get(player);
 
             if (shouldBeRegistered) {
-                if (player.getIndex() == Player.NO_INDEX) {
+                if (player.getIndex() == Entity.NO_INDEX) {
                     players.add(player);
                 }
-            } else if (player.getIndex() != Player.NO_INDEX) {
+            } else if (player.getIndex() != Entity.NO_INDEX) {
                 players.remove(player);
             }
         }
     }
 
+    private void processNpcChanges() {
+        Map<Npc, Boolean> desiredState = new IdentityHashMap<>();
+        List<Npc> order = new ArrayList<>();
+        NpcChange change;
+
+        while ((change = pendingNpcChanges.poll()) != null) {
+            Npc npc = change.npc();
+            if (!desiredState.containsKey(npc)) {
+                order.add(npc);
+            }
+            desiredState.put(npc, change.registered());
+        }
+
+        for (Npc npc : order) {
+            boolean shouldBeRegistered = desiredState.get(npc);
+
+            if (shouldBeRegistered) {
+                if (npc.getIndex() == Entity.NO_INDEX) {
+                    npcs.add(npc);
+                }
+            } else if (npc.getIndex() != Entity.NO_INDEX) {
+                npcs.remove(npc);
+            }
+        }
+    }
+
     private record PlayerChange(Player player, boolean registered) {
+    }
+
+    private record NpcChange(Npc npc, boolean registered) {
     }
 }

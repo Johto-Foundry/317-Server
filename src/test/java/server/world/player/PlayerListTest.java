@@ -54,11 +54,13 @@ class PlayerListTest {
     @Test
     void doesNotRemoveDifferentPlayerWithSameIndex() {
         PlayerList players = new PlayerList();
+        PlayerList otherPlayers = new PlayerList();
         Player player = new Player();
         Player stalePlayer = new Player();
         players.add(player);
-        stalePlayer.setIndex(player.getIndex());
+        otherPlayers.add(stalePlayer);
 
+        assertEquals(player.getIndex(), stalePlayer.getIndex());
         assertFalse(players.remove(stalePlayer));
         assertSame(player, players.get(player.getIndex()));
         assertEquals(1, players.size());
