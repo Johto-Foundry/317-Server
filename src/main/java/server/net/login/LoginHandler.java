@@ -5,6 +5,8 @@ import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import server.net.Session;
+import server.net.sync.PlayerSynchronization;
+import server.net.sync.RegionUpdate;
 import server.world.World;
 import server.world.map.Tile;
 import server.world.player.Player;
@@ -93,6 +95,9 @@ public final class LoginHandler extends SimpleChannelInboundHandler<LoginRequest
             if (context.pipeline().context(this) != null) {
                 context.pipeline().remove(this);
             }
+
+            session.write(RegionUpdate.create(player));
+            session.write(PlayerSynchronization.initial(player));
         });
     }
 

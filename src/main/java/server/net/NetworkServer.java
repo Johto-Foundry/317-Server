@@ -57,6 +57,7 @@ public final class NetworkServer {
                         protected void initChannel(SocketChannel channel) {
                             Session session = new Session(channel);
                             channel.attr(Session.KEY).set(session);
+                            channel.pipeline().addLast(new PacketEncoder(session));
                             channel.pipeline().addLast(new SessionHandler(world, session));
                             channel.pipeline().addLast(new LoginDecoder());
                             channel.pipeline().addLast(new LoginHandler(world, session));

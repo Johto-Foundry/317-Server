@@ -6,6 +6,8 @@ import server.world.map.Tile;
 public final class Player extends Entity {
 
     private final String username;
+    private final Appearance appearance = new Appearance();
+    private int combatLevel = 3;
 
     public Player(Tile tile) {
         this(null, tile);
@@ -18,5 +20,13 @@ public final class Player extends Entity {
 
     public String getUsername() {
         return username;
+    }
+
+    public Appearance getAppearance() {
+        return appearance;
+    }
+
+    public int getCombatLevel() {
+        return combatLevel;
     }
 }

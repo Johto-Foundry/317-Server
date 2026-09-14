@@ -32,3 +32,9 @@ application {
 tasks.test {
     useJUnitPlatform()
 }
+
+tasks.register("runClient") {
+    group = "application"
+    description = "Runs the bundled 317 reference client."
+    dependsOn(":client:run")
+}
